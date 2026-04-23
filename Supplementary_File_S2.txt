@@ -1,0 +1,66 @@
+Pristis pectinata
+Mobula hypostoma
+Amblyraja radiata
+Rhincodon typus
+Chiloscyllium plagiosum
+Scyliorhinus canicula
+Callorhinchus milii
+Takifugu flavidus
+Gasterosteus aculeatus aculeatus
+Mastacembelus armatus
+Scophthalmus maximus
+Mugil cephalus
+Oryzias melastigma
+Doryrhamphus excisus
+Microcaecilia unicolor
+Geotrypetes seraphini
+Rhinatrema bivittatum
+Pleurodeles waltl 
+Bufo bufo
+Bufo gargarizans
+Rana temporaria
+Xenopus tropicalis
+Trichosurus vulpecula
+Antechinus flavipes
+Dromiciops gliroides 
+Monodelphis domestica
+Tupaia chinensis 
+Homo sapiens
+Mus musculus
+Eptesicus fuscus
+Canis lupus familiaris
+Equus caballus
+Loxodonta africana
+Trichechus manatus latirostris 
+Echinops telfairi
+Elephantulus edwardii
+Dasypus novemcinctus
+Choloepus didactylus
+Tachyglossus aculeatus
+Ornithorhynchus anatinus
+Eublepharis macularius
+Hemicordylus capensis
+Podarcis raffonei
+Elgaria multicarinata webbii
+Sphenodon punctatus 
+Alligator mississippiensis
+Alligator sinensis
+Struthio camelus 
+Tinamus guttatus
+Apteryx mantelli mantelli
+Rhea pennata
+Cuculus canorus
+Aquila chrysaetos chrysaetos
+Gavia stellata
+Oxyura jamaicensis
+Cygnus olor
+Anas platyrhynchos
+Coturnix japonica
+Gallus gallus
+Lagopus muta
+Numida meleagris
+Caretta caretta
+Chelonia mydas
+Malaclemys terrapin pileata
+Latimeria chalumnae
+Protopterus annectens
