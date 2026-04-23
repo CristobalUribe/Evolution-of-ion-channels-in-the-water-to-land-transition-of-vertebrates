@@ -1,0 +1,130 @@
+# Supplementary file of the manuscript "Evolution of ion channels in the water-to-land transition of vertebrates"
+# Last updated: April 2026
+# This file contains the general information processing pipeline, including main bash commands, in-house scripts, and program command lines.
+
+# First step: Obtain the longest isoform for each gene
+
+# Download proteomes (.faa) from the NCBI FTP, then:
+
+grep ">" Mus_musculus.faa > Mus_musculus.faa_2
+
+awk 'BEGIN{OFS=FS="\t"}{print $1}' Mus_musculus.faa_2 > Mus_musculus.faa_ids
+
+# In vi, replace:
+:%s/>//g
+
+# After this, we use a script that relies on NCBI datasets (you need to have the datasets executable installed) to assign gene symbols to each NCBI ID in our ID files (e.g., Mus_musculus.faa_ids):
+
+perl script_2.pl > Mus_musculus.faa_ids_2
+
+# To remove empty lines, use:
+
+grep "|" Mus_musculus.faa_ids_2 > Mus_musculus.faa_ids_3
+
+# Change the column order with:
+
+awk 'BEGIN{OFS=FS=" "}{print $3,$2,$1}' Mus_musculus.faa_ids_3 > Mus_musculus.faa_ids_4
+
+# Now you have the IDs for each gene, which will be used to replace headers in the original FASTA using a Python script. This will generate a new file (You need to change file names):
+
+python replace_headers.py
+
+# Using the resulting FASTA file, run the following to obtain the longest isoform:
+
+cat Mus_musculus.fa | awk '/^>/ {if(N>0) printf("\n"); printf("%s\t",$0);N++;next;} {printf("%s",$0);} END {if(N>0) printf("\n");}' | tr "|" "\t" | awk -F '\t' '{printf("%s\t%d\n",$0,length($3));}' | sort -t $'\t' -k1,1 -k4,4nr | sort -t $'\t' -k1,1 -u -s | sed 's/\t/|/' | cut -f 1,2 | tr "\t" "\n" > Mus_musculus_final.fa
+
+# Having obtained the longest protein for each gene, use TMHMM to identify transmembrane proteins:
+
+tmhmm Mus_musculus_final.fa > Mouse_Tmhmm
+
+# Filter transmembrane segments:
+
+awk '/Number of predicted TMHs/ {print $0}' Mouse_Tmhmm > Mouse_Tmhmm_filt
+
+awk 'BEGIN{OFS=FS=" "}{if($7>=2) print $0}' Mouse_Tmhmm_filt > Mouse_Tmhmm_filt2
+
+# Retrieve IDs and sequences:
+
+awk 'BEGIN{OFS=FS=" "}{print $2}' Mouse_Tmhmm_filt2 > Mouse_ids_2
+
+grep -Fwf Mouse_ids_2 Mus_musculus.faa > Full_Mouse_Ids2
+
+python faSomeRecords.py --fasta Mus_musculus.faa --list Full_Mouse_Ids2 -o Mouse_proteins_final.fasta
+
+# Next, run Batch Web CD-Search Tool (CDD v3.21) on the proteins.
+# Due to the CD-Search limitation (1000 sequences per request), the FASTA file must be split into smaller parts.
+
+# To filter the output and identify ion channels:
+
+awk 'BEGIN{OFS=FS="\t"}{if($2=="specific" || $2=="superfamily") print $0}' Mouse_hitdata.txt > Mouse_hitdata.txt_filt
+
+awk -F'\t' '{print $0 "\n" $3}' Mouse_hitdata.txt_filt > Mouse_hitdata.txt_filt2
+
+perl script_filt_2.pl > Mouse_hitdata.txt_filt3
+
+python script_filt.py > Mouse_hitdata.txt_filt4
+
+grep "^Q#" Mouse_hitdata.txt_filt4 | awk 'BEGIN {OFS=FS=" "}{print $5}' | sort | uniq -c | awk '{print $2}' > Mouse_hitdata.txt_channels
+
+# or alternatively:
+
+grep "^Q#" Mouse_hitdata.txt_filt4 | awk 'BEGIN {OFS=FS=" "}{print $3}' | sort | uniq -c | awk '{print $2}' > Mouse_hitdata.txt_channels
+
+# At this stage, you will have a file containing IDs or gene symbols, which will be used to retrieve the corresponding FASTA sequences:
+
+grep -Fwf Mouse_hitdata.txt_channels Mouse_proteins_final.fasta > Full_Mouse_Ids
+
+python faSomeRecords.py --fasta Mouse_proteins_final.fasta --list Full_Mouse_Ids -o Mouse_channels.fa
+
+# After completing these steps, you should have the ion channel genes dataset for each species, which will be used in the next analyses.
+
+# For OMAStandalone, these ion channel FASTA files are used as input in the DB folder, and a Newick-format tree must be specified in the control file.
+
+# To run OMA, install it and execute:
+
+OMA
+
+# This will generate an "Output" folder containing the results.
+
+# In the "OrthologousGroupsFasta" folder, you will find OMAGroups in FASTA format.
+# We used these files along with a Python script to classify species per group in a CSV file and apply downstream filters.
+
+# Note that you will need to modify the script dictionary according to the naming of your ion channel files in the OMA DB folder.
+
+# The script requires a TXT file listing the OMAGroups to process. We used only those OMAGroups where lungfish was present (Look "OG_List" as an example):
+
+python script_to_classify.py
+
+# This will generate a CSV file that can be processed in Excel to apply filters as needed.
+
+# With the selected OMAGroups, the next step is to run PAML to estimate dN/dS.
+# This requires PHYLIP format files, so several preprocessing steps are needed.
+
+# First, modify the header format in OMAGroups files:
+# In vi: remove ">" using :%s/>//g
+# Then:
+
+awk 'BEGIN{OFS=FS=" "}{if($1~/^>/) print ">"$3,$2,$1,$4; else print $0}' OGXX.fa
+
+# Next, create a directory to store species CDS files.
+# A Python script is used to extract CDS sequences from each OG file:
+
+python Get_CDS.py path_to_file/OGXX.fa > OGXX.fa_CDS
+
+# Align sequences using MAFFT:
+
+mafft path/to/file/OGXX.fa > OGXX.msa
+
+# Generate codon alignment with PAL2NAL in PHYLIP format:
+
+pal2nal.pl path/to/OGXX.msa path/to/CDS_OGXX.fa -output paml
+
+# Now you are ready to run PAML.
+# Configure the control file and provide a Newick tree corresponding to the species in each OG.
+
+# If you plan to run CAFE for gene family analysis, use the Hierarchical Orthologous Groups file.
+
+# In CAFE, consult the manual and scripts.
+# We tested two models: one estimating two λ parameters and another estimating three λ parameters.
+
+# Ultrametric trees will be uploaded to the scripts folder in case you need or wish to review them.
