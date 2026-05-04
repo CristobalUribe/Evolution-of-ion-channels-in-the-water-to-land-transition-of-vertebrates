@@ -9,7 +9,7 @@ my $filename2 = 'CDD_channels_new_ids_list.txt';
 open(FH, '<', $filename) or die $!;
 
 while(<FH>){
-   if ($_ =~ /^Q#/){  # Aquí se agrega el 'or' para 'NP'
+   if ($_ =~ /^Q#/){ 
         print $_;
    }else{
         system("grep -w '$_'  ../../CDD_channels_new_ids_list.txt");
