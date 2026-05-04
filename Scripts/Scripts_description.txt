@@ -1,0 +1,30 @@
+Scripts description
+
+The pipeline_for_paper.txt file describes the step-by-step procedure, including example input and output file names for each script.
+
+script_2.pl – This script takes as input a .txt file containing the FASTA IDs from the .faa file. It uses the NCBI Datasets tool to assign gene symbols to each NCBI ID in the file.
+
+replace_headers.py – This script takes as input the updated complete IDs obtained from previous steps described in pipeline_for_paper.txt, together with the original .faa file downloaded from the FTP server. It generates a new FASTA file in which the original IDs are replaced with the updated IDs, allowing the pipeline to proceed.
+
+faSomeRecords.py – This script extracts FASTA sequences from the original FASTA file (--fasta original.faa) using a .txt file containing a list of IDs (--list IDS_file.txt).
+
+After obtaining the Batch Web CD-Search Tool output, simple scripts were used to parse these files.
+
+script_file_2.pl – This script retrieves the query IDs, which start with #Q, and intersects the Conserved Domain Database IDs against our manually curated list of ion channel-related CDD IDs (CDD_channels_new_ids_list.txt). The output is a file containing the query IDs and the matched CDD IDs.
+
+script_filt.py – This script removes query IDs, which start with #Q, when they do not have an ion channel-related CDD ID associated with them.
+
+After identifying the putative ion channels, OMA was run and the output was classified to apply additional filters.
+
+script_to_classify.py – This script uses a .txt file as input (OG_List.txt in this folder), which contains the names of the OMAGroup files (OGXX.fa). Using a dictionary, it counts and classifies the species present in each OMAGroup according to their respective group and class. The output is a CSV file.
+
+Before running PAML, Get_CDS.py was executed to obtain the CDS corresponding to each protein.
+
+Get_CDS.py – This script takes OMAGroup files (OGXX.fa) as input and, based on the species file names used as input for OMA, extracts the corresponding coding DNA sequences from the CDS files downloaded from the FTP server (CDS_from_genomic_fna.gz). The script defines a dictionary in which each species name is linked to its respective CDS file. For example, because Aguila.fa was used as the file name for OMA, Aguila was linked to the corresponding CDS file name, Aguila_CDS. This script generates a file containing the CDS list for each OMAGroup, allowing PAL2NAL to be used.
+
+The detailed step-by-step procedure is provided in the pipeline_for_paper.txt file.          
+
+
+
+
+
