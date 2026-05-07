@@ -1,0 +1,141 @@
+-----------------------------------------------------------
+Family information: Input_filtrado.txt
+Log: reports/log_1w.txt
+The number of families is 763
+Root Family size : 1 ~ 30
+Family size : 0 ~ 61
+P-value: 0.01
+Num of Threads: 10
+Num of Random: 1000
+-----------------------------------------------------------
+Family information: Input_filtrado.txt
+Log: reports/log_1w.txt
+The number of families is 763
+Root Family size : 1 ~ 30
+Family size : 0 ~ 61
+P-value: 0.01
+Num of Threads: 10
+Num of Random: 1000
+-----------------------------------------------------------
+Family information: Input_filtrado.txt
+Log: reports/log_1w.txt
+The number of families is 763
+Root Family size : 1 ~ 30
+Family size : 0 ~ 61
+P-value: 0.01
+Num of Threads: 10
+Num of Random: 1000
+-----------------------------------------------------------
+Family information: Input_filtrado.txt
+Log: reports/log_1w.txt
+The number of families is 763
+Root Family size : 1 ~ 30
+Family size : 0 ~ 61
+P-value: 0.01
+Num of Threads: 10
+Num of Random: 1000
+-----------------------------------------------------------
+Family information: Input_filtrado.txt
+Log: reports/log_1w.txt
+The number of families is 763
+Root Family size : 1 ~ 30
+Family size : 0 ~ 61
+P-value: 0.01
+Num of Threads: 10
+Num of Random: 1000
+-----------------------------------------------------------
+Family information: Input_filtrado.txt
+Log: reports/log_1w.txt
+The number of families is 763
+Root Family size : 1 ~ 30
+Family size : 0 ~ 61
+P-value: 0.01
+Num of Threads: 10
+Num of Random: 1000
+-----------------------------------------------------------
+Family information: Input_filtrado.txt
+Log: reports/log_1w.txt
+The number of families is 763
+Root Family size : 1 ~ 30
+Family size : 0 ~ 61
+P-value: 0.01
+Num of Threads: 10
+Num of Random: 1000
+-----------------------------------------------------------
+Family information: Input_filtrado.txt
+Log: reports/log_1w.txt
+The number of families is 763
+Root Family size : 1 ~ 30
+Family size : 0 ~ 61
+P-value: 0.01
+Num of Threads: 10
+Num of Random: 1000
+-----------------------------------------------------------
+Family information: Input_filtrado.txt
+Log: reports/log_1w.txt
+The number of families is 763
+Root Family size : 1 ~ 30
+Family size : 0 ~ 61
+P-value: 0.01
+Num of Threads: 10
+Num of Random: 1000
+Lambda Tree: (((((1,1)1,1)1,((1,1)1,1)1)1,1)1,((((1,1)1,((1,1)1,(1,1)1)1)1,1)1,((((((1,1)1,1)1,(1,(((1,1)1,1)1,1)1)1)1,((((((1,1)1,1)1,1)1,((((1,1)1,1)1,(1,(1,1)1)1)1,(((1,1)1,(1,1)1)1,(1,1)1)1)1)1,(1,1)1)1,(((1,(1,(1,1)1)1)1,1)1,(((1,1)1,((1,((1,1)1,1)1)1,((1,(1,1)1)1,(((1,1)1,1)1,((1,(1,1)1)1,1)1)1)1)1)1,((1,1)1,1)1)1)1)1)1,1)1,1)1)1)
+Empirical Prior Estimation Result: (26 iterations)
+Poisson lambda: 0.050570 & Score: 4075.133382
+Lambda : 0.00034426149116 & Score: -18720.450273
+.Lambda : 0.00036147456571 & Score: -18599.061683
+.Lambda : 0.00037868764027 & Score: -18488.067807
+.Lambda : 0.00039590071483 & Score: -18386.526335
+.Lambda : 0.00043032686394 & Score: -18208.612572
+.Lambda : 0.00046475301306 & Score: -18059.858287
+.Lambda : 0.00053360531129 & Score: -17833.521369
+.Lambda : 0.00060245760952 & Score: -17682.260829
+.Lambda : 0.00074016220598 & Score: -17541.832167
+.Lambda : 0.00087786680245 & Score: -17552.344515
+.Lambda : 0.00087786680245 & Score: -17552.344515
+.Lambda : 0.00060245760952 & Score: -17682.260829
+.Lambda : 0.00067130990775 & Score: -17589.042233
+.Lambda : 0.00080901450421 & Score: -17531.815842
+.Lambda : 0.00087786680245 & Score: -17552.344515
+.Lambda : 0.00084344065333 & Score: -17538.612734
+.Lambda : 0.00077458835510 & Score: -17532.632009
+.Lambda : 0.00084344065333 & Score: -17538.612734
+.Lambda : 0.00082622757877 & Score: -17534.307034
+.Lambda : 0.00079180142966 & Score: -17531.226472
+.Lambda : 0.00077458835510 & Score: -17532.632009
+.Lambda : 0.00078319489238 & Score: -17531.673820
+.Lambda : 0.00080040796694 & Score: -17531.277753
+.Lambda : 0.00078319489238 & Score: -17531.673820
+.Lambda : 0.00078749816102 & Score: -17531.387064
+.Lambda : 0.00079610469830 & Score: -17531.190531
+.Lambda : 0.00080040796694 & Score: -17531.277753
+.Lambda : 0.00079825633262 & Score: -17531.218839
+.Lambda : 0.00079395306398 & Score: -17531.193014
+.Lambda : 0.00079825633262 & Score: -17531.218839
+.Lambda : 0.00079718051546 & Score: -17531.200848
+.Lambda : 0.00079502888114 & Score: -17531.187912
+.Lambda : 0.00079395306398 & Score: -17531.193014
+.Lambda : 0.00079449097256 & Score: -17531.189497
+.Lambda : 0.00079556678972 & Score: -17531.188258
+.Lambda : 0.00079449097256 & Score: -17531.189497
+.Lambda : 0.00079475992685 & Score: -17531.188463
+.Lambda : 0.00079529783543 & Score: -17531.187844
+.Lambda : 0.00079556678972 & Score: -17531.188258
+.Lambda : 0.00079543231257 & Score: -17531.187991
+.Lambda : 0.00079516335828 & Score: -17531.187818
+.Lambda : 0.00079502888114 & Score: -17531.187912
+.Lambda : 0.00079509611971 & Score: -17531.187850
+.Lambda : 0.00079523059685 & Score: -17531.187816
+.Lambda : 0.00079529783543 & Score: -17531.187844
+.Lambda : 0.00079526421614 & Score: -17531.187826
+.Lambda : 0.00079519697757 & Score: -17531.187813
+.Lambda : 0.00079516335828 & Score: -17531.187818
+.Lambda : 0.00079518016792 & Score: -17531.187815
+.Lambda : 0.00079521378721 & Score: -17531.187814
+.
+Lambda Search Result: 23
+Lambda : 0.00079519697757 & Score: 17531.187813
+DONE: Lambda Search or setting, for command:
+lambda -s -t (((((1,1)1,1)1,((1,1)1,1)1)1,1)1,((((1,1)1,((1,1)1,(1,1)1)1)1,1)1,((((((1,1)1,1)1,(1,(((1,1)1,1)1,1)1)1)1,((((((1,1)1,1)1,1)1,((((1,1)1,1)1,(1,(1,1)1)1)1,(((1,1)1,(1,1)1)1,(1,1)1)1)1)1,(1,1)1)1,(((1,(1,(1,1)1)1)1,1)1,(((1,1)1,((1,((1,1)1,1)1)1,((1,(1,1)1)1,(((1,1)1,1)1,((1,(1,1)1)1,1)1)1)1)1)1,((1,1)1,1)1)1)1)1)1,1)1,1)1)1); 
+Running Viterbi algorithm....
+Report Done
