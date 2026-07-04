@@ -8,7 +8,7 @@
 
 grep ">" Mus_musculus.faa > Mus_musculus.faa_2
 
-awk 'BEGIN{OFS=FS="\t"}{print $1}' Mus_musculus.faa_2 > Mus_musculus.faa_ids
+awk 'BEGIN{OFS=FS=" "}{print $1}' Mus_musculus.faa_2 > Mus_musculus.faa_ids
 
 # In vi, replace:
 :%s/>//g
