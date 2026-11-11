@@ -1,5 +1,5 @@
 # Supplementary file of the manuscript "Evolution of ion channels in the water-to-land transition of vertebrates"
-# Last updated: April 2026
+# Last updated: November 2026
 # This file contains the general information processing pipeline, including main bash commands, in-house scripts, and program command lines.
 
 # First step: Obtain the longest isoform for each gene
@@ -97,30 +97,266 @@ python script_to_classify.py
 
 # This will generate a CSV file that can be processed in Excel to apply filters as needed.
 
-# With the selected OMAGroups, the next step is to run PAML to estimate dN/dS.
-# This requires PHYLIP format files, so several preprocessing steps are needed.
-
-# First, modify the header format in OMAGroups files:
-# In vi: remove ">" using :%s/>//g
-# Then:
-
-awk 'BEGIN{OFS=FS=" "}{if($1~/^>/) print ">"$3,$2,$1,$4; else print $0}' OGXX.fa
-
-# Next, create a directory to store species CDS files.
-# A Python script is used to extract CDS sequences from each OG file:
-
+# Before running GUIDANCE3/PAML, obtain the CDS corresponding to the selected
+# OMA Group proteins. The original pipeline used the following example:
+#
 python Get_CDS.py path_to_file/OGXX.fa > OGXX.fa_CDS
+#
+# Organize the resulting CDS FASTA files under cds_ogs/<OG_NAME>/ according to
+# the GUIDANCE3 section below. Confirm protein/CDS identifier correspondence,
+# correct reading frames and identical species labels across protein/CDS/tree.
+# Keep OG protein FASTA headers valid (retain the > character); adapt the
+# original header-reformatting step only if the actual input identifiers require it.
 
-# Align sequences using MAFFT:
+# GUIDANCE3 AND PAML BRANCH-SITE PIPELINE
 
-mafft path/to/file/OGXX.fa > OGXX.msa
+# ---------------------------------------------------------------------------
+# 1. INPUT FILES
+# ---------------------------------------------------------------------------
 
-# Generate codon alignment with PAL2NAL in PHYLIP format:
+# For each OG, prepare:
+#
+# 1. One unaligned protein FASTA file.
+# 2. One CDS FASTA file corresponding to the same proteins.
+# 3. One species tree in Newick format for PAML.
+#
+# Protein, CDS, and tree labels must identify the same species. CDS sequences
+# must be in frame.
+#
+# A simple project organization is:
+#
+# project/
+# |-- protein_ogs/          Protein FASTA files
+# |-- cds_ogs/              CDS files, one directory per OG
+# |-- paml_templates/       Species trees, one directory per OG
+# |-- scripts/              Scripts used below
+# |-- guidance3_analysis/   GUIDANCE3 and filtered codon alignments
+# `-- paml_guidance3/       PAML input and results
+#
+# Example:
+#
+# protein_ogs/OG1.fasta
+# cds_ogs/OG1/cds_species.fasta
+# paml_templates/OG1/arbol.tree
 
-pal2nal.pl path/to/OGXX.msa path/to/CDS_OGXX.fa -output paml
 
-# Now you are ready to run PAML.
-# Configure the control file and provide a Newick tree corresponding to the species in each OG.
+# Open a terminal in the project directory and define the folders once.
+# Change only these names if the project is organized differently.
+
+PROJECT_DIR="$(pwd)"
+PROTEIN_DIR="$PROJECT_DIR/protein_ogs"
+CDS_DIR="$PROJECT_DIR/cds_ogs"
+TEMPLATE_DIR="$PROJECT_DIR/paml_templates"
+SCRIPT_DIR="$PROJECT_DIR/scripts"
+GUIDANCE_DIR="$PROJECT_DIR/guidance3_analysis"
+CODON_DIR="$GUIDANCE_DIR/codon_results"
+PAML_DIR="$PROJECT_DIR/paml_guidance3"
+INPUT_LIST="$PROJECT_DIR/og_protein_files.txt"
+
+mkdir -p "$GUIDANCE_DIR/results" "$CODON_DIR" "$PAML_DIR"
+
+
+# ---------------------------------------------------------------------------
+# 2. CREATE THE LIST OF OMA GROUPS
+# ---------------------------------------------------------------------------
+
+# This accepts protein files ending in .fa or .fasta.
+
+find "$PROTEIN_DIR" -maxdepth 1 -type f \
+    \( -name '*.fa' -o -name '*.fasta' \) \
+    -print | sort > "$INPUT_LIST"
+
+
+# Check the number of OGs and the first filenames.
+
+wc -l "$INPUT_LIST"
+head "$INPUT_LIST"
+
+
+# ---------------------------------------------------------------------------
+# 3. RUN GUIDANCE3
+# ---------------------------------------------------------------------------
+
+# Locate GUIDANCE3 and MAFFT. If a result is empty, activate the environment
+# where the program is installed.
+
+GUIDANCE_BIN="$(command -v guidance3)"
+MAFFT_BIN="$(command -v mafft)"
+
+printf 'GUIDANCE3: %s\n' "$GUIDANCE_BIN"
+printf 'MAFFT: %s\n' "$MAFFT_BIN"
+
+
+# The default is four CPUs per GUIDANCE3 job. Change it if necessary.
+
+GUIDANCE_CPUS="${GUIDANCE_CPUS:-4}"
+
+
+# This simple loop runs one OG at a time. A cluster scheduler may be used to
+# run several independent OGs in parallel.
+
+while IFS= read -r protein_file; do
+    filename="$(basename "$protein_file")"
+    og="${filename%%.*}"
+
+    "$GUIDANCE_BIN" \
+        --seqFile "$protein_file" \
+        --msaProgram MAFFT \
+        --seqType aa \
+        --outDir "$GUIDANCE_DIR/results/${og}_guidance" \
+        --bootstraps 100 \
+        --proc_num "$GUIDANCE_CPUS" \
+        --outOrder as_input \
+        --colCutoff 0.93 \
+        --msaProgram_path "$MAFFT_BIN" \
+        --MSA_Param "--localpair --maxiterate 1000" \
+        --disableConvergence
+done < "$INPUT_LIST"
+
+
+# This runs MAFFT L-INS-i and estimates column confidence with 100 GUIDANCE3
+# bootstrap replicates. The selected protein alignment is normally named:
+#
+# MSA.MAFFT_LINSI.Guidance2_BestMSA.fasta
+#
+# "Guidance2" is part of the filename used by the software; GUIDANCE3 was run.
+# Bootstrap guide trees are used only to calculate alignment confidence. They
+# are not the species trees used by PAML. GUIDANCE3 selects the BestMSA but does
+# not perform another independent alignment after that selection.
+
+
+# ---------------------------------------------------------------------------
+# 4. CREATE THE FILTERED CODON ALIGNMENTS
+# ---------------------------------------------------------------------------
+
+# PAL2NAL projects each protein BestMSA onto its corresponding CDS alignment.
+# The script prepare_guidance3_codons.py then:
+#
+# - Removes protein columns with a GUIDANCE3 score below 0.93.
+# - Removes the corresponding nucleotide triplets from every sequence.
+# - Retains and records columns without a reported score.
+# - Converts remaining stop codons to NNN.
+# - Checks sequence lengths, reading frame, and codon alignment consistency.
+#
+# The automatic GUIDANCE3 filtered FASTA is not used directly because gaps can
+# be treated differently among sequences. Removing the same complete columns
+# from every sequence preserves codon homology.
+
+
+# Locate Perl and PAL2NAL.
+
+PERL_BIN="$(command -v perl)"
+PAL2NAL_BIN="$(command -v pal2nal.pl)"
+
+
+# Prepare all codon alignments.
+
+python3 "$SCRIPT_DIR/prepare_guidance3_codons.py" \
+    --guidance-root "$GUIDANCE_DIR" \
+    --source-codon-root "$CDS_DIR" \
+    --output-root "$CODON_DIR" \
+    --cutoff 0.93 \
+    --perl "$PERL_BIN" \
+    --pal2nal "$PAL2NAL_BIN"
+
+
+# Main outputs for each OG:
+#
+# OG_NAME_BestMSA_filtered.fasta          Filtered protein alignment
+# OG_NAME_BestMSA_filtered_codon.fasta    Filtered codon alignment
+# OG_NAME_column_filter.tsv               Record of kept/removed columns
+# CODON_FILTER_OK                         Successful validation marker
+#
+# A global summary is written to guidance3_codon_summary.tsv.
+
+
+# The following number should equal the number of OGs in the input list.
+
+find "$CODON_DIR" -type f -name 'CODON_FILTER_OK' | wc -l
+
+
+# ---------------------------------------------------------------------------
+# 5. PREPARE THE PAML INPUT
+# ---------------------------------------------------------------------------
+
+# Prepare one Newick species tree per OG. Each tree must contain exactly the
+# species in that alignment, use identical labels, and mark the foreground
+# branch with #1. The phylogenetic source used to build the topology should be
+# recorded and cited.
+
+
+# Create alternative and null branch-site model directories.
+
+python3 "$SCRIPT_DIR/prepare_guidance3_paml.py" \
+    --codon-root "$CODON_DIR" \
+    --template-paml-root "$TEMPLATE_DIR" \
+    --output-root "$PAML_DIR"
+
+
+# Alternative model settings:
+# model = 2
+# NSsites = 2
+# fix_omega = 0
+# omega = 4
+#
+# Null model settings:
+# model = 2
+# NSsites = 2
+# fix_omega = 1
+# omega = 1
+#
+# Both models use cleandata = 1. The alternative and null models use the same
+# alignment, tree, and cleandata setting, so their lnL values are comparable.
+
+
+# There should be one successful input marker per OG in each model.
+
+find "$PAML_DIR/alternative" -type f -name 'PAML_INPUT_OK' | wc -l
+find "$PAML_DIR/null" -type f -name 'PAML_INPUT_OK' | wc -l
+
+
+# ---------------------------------------------------------------------------
+# 6. RUN CODEML
+# ---------------------------------------------------------------------------
+
+# codeml is normally single-threaded. MAX_JOBS is the number of independent
+# codeml processes allowed to run simultaneously. One is the safe default.
+
+CODEML_BIN="$(command -v codeml)"
+MAX_JOBS="${MAX_JOBS:-1}"
+
+
+# The launcher skips models already marked as complete, so it can be restarted
+# after an interruption.
+
+nohup bash "$SCRIPT_DIR/run_guidance3_paml.sh" \
+    --paml-root "$PAML_DIR" \
+    --codeml "$CODEML_BIN" \
+    --max-jobs "$MAX_JOBS" \
+    > "$PAML_DIR/codeml_launcher.log" 2>&1 &
+
+
+# Monitor the run. Ctrl+C stops viewing the log but does not stop codeml.
+
+tail -f "$PAML_DIR/codeml_launcher.log"
+
+# ---------------------------------------------------------------------------
+# 7. CHECK THE RESULTS
+# ---------------------------------------------------------------------------
+
+# Calculate the expected number of model runs. There are two models per OG.
+
+N_OG="$(wc -l < "$INPUT_LIST")"
+EXPECTED_MODELS=$((2 * N_OG))
+
+printf 'OMA Groups: %s\n' "$N_OG"
+printf 'Expected models: %s\n' "$EXPECTED_MODELS"
+
+# The number of completed codeml runs should equal EXPECTED_MODELS.
+
+find "$PAML_DIR" -type f -name 'CODEML_OK' | wc -l
+
+CAFE
 
 # If you plan to run CAFE for gene family analysis, use the Hierarchical Orthologous Groups file.
 
