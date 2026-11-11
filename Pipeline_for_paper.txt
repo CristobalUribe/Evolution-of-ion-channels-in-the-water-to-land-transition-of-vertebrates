@@ -156,100 +156,65 @@ INPUT_LIST="$PROJECT_DIR/og_protein_files.txt"
 mkdir -p "$GUIDANCE_DIR/results" "$CODON_DIR" "$PAML_DIR"
 
 
-# ---------------------------------------------------------------------------
-# 2. CREATE THE LIST OF OMA GROUPS
-# ---------------------------------------------------------------------------
+# 2. DEFINE DIRECTORIES, PROGRAMS AND INPUT LIST
 
-# This accepts protein files ending in .fa or .fasta.
+PROJECT_DIR="$(pwd)"
+PROTEIN_DIR="$PROJECT_DIR/protein_ogs"
+CDS_DIR="$PROJECT_DIR/cds_ogs"
+TEMPLATE_DIR="$PROJECT_DIR/paml_templates"
+SCRIPT_DIR="$PROJECT_DIR/scripts"
+GUIDANCE_DIR="$PROJECT_DIR/guidance3_analysis"
+CODON_DIR="$GUIDANCE_DIR/codon_results"
+PAML_DIR="$PROJECT_DIR/paml_guidance3"
+INPUT_LIST="$PROJECT_DIR/og_protein_files.txt"
 
-find "$PROTEIN_DIR" -maxdepth 1 -type f \
-    \( -name '*.fa' -o -name '*.fasta' \) \
-    -print | sort > "$INPUT_LIST"
-
-
-# Check the number of OGs and the first filenames.
-
-wc -l "$INPUT_LIST"
-head "$INPUT_LIST"
-
-
-# ---------------------------------------------------------------------------
-# 3. RUN GUIDANCE3
-# ---------------------------------------------------------------------------
-
-# Locate GUIDANCE3 and MAFFT. If a result is empty, activate the environment
-# where the program is installed.
-
-GUIDANCE_BIN="$(command -v guidance3)"
+G3_BIN="$(command -v guidance3)"
 MAFFT_BIN="$(command -v mafft)"
-
-printf 'GUIDANCE3: %s\n' "$GUIDANCE_BIN"
-printf 'MAFFT: %s\n' "$MAFFT_BIN"
-
-
-# The default is four CPUs per GUIDANCE3 job. Change it if necessary.
-
-GUIDANCE_CPUS="${GUIDANCE_CPUS:-4}"
-
-
-# This simple loop runs one OG at a time. A cluster scheduler may be used to
-# run several independent OGs in parallel.
-
-while IFS= read -r protein_file; do
-    filename="$(basename "$protein_file")"
-    og="${filename%%.*}"
-
-    "$GUIDANCE_BIN" \
-        --seqFile "$protein_file" \
-        --msaProgram MAFFT \
-        --seqType aa \
-        --outDir "$GUIDANCE_DIR/results/${og}_guidance" \
-        --bootstraps 100 \
-        --proc_num "$GUIDANCE_CPUS" \
-        --outOrder as_input \
-        --colCutoff 0.93 \
-        --msaProgram_path "$MAFFT_BIN" \
-        --MSA_Param "--localpair --maxiterate 1000" \
-        --disableConvergence
-done < "$INPUT_LIST"
-
-
-# This runs MAFFT L-INS-i and estimates column confidence with 100 GUIDANCE3
-# bootstrap replicates. The selected protein alignment is normally named:
-#
-# MSA.MAFFT_LINSI.Guidance2_BestMSA.fasta
-#
-# "Guidance2" is part of the filename used by the software; GUIDANCE3 was run.
-# Bootstrap guide trees are used only to calculate alignment confidence. They
-# are not the species trees used by PAML. GUIDANCE3 selects the BestMSA but does
-# not perform another independent alignment after that selection.
-
-
-# ---------------------------------------------------------------------------
-# 4. CREATE THE FILTERED CODON ALIGNMENTS
-# ---------------------------------------------------------------------------
-
-# PAL2NAL projects each protein BestMSA onto its corresponding CDS alignment.
-# The script prepare_guidance3_codons.py then:
-#
-# - Removes protein columns with a GUIDANCE3 score below 0.93.
-# - Removes the corresponding nucleotide triplets from every sequence.
-# - Retains and records columns without a reported score.
-# - Converts remaining stop codons to NNN.
-# - Checks sequence lengths, reading frame, and codon alignment consistency.
-#
-# The automatic GUIDANCE3 filtered FASTA is not used directly because gaps can
-# be treated differently among sequences. Removing the same complete columns
-# from every sequence preserves codon homology.
-
-
-# Locate Perl and PAL2NAL.
-
 PERL_BIN="$(command -v perl)"
 PAL2NAL_BIN="$(command -v pal2nal.pl)"
+CODEML_BIN="$(command -v codeml)"
 
+# Required executables must be installed and found before continuing.
+# Protein filenames such as OG1.fa, OG1.fasta and OG22.fa_3 are supported.
+# For the original 167 OG run, OG22.fa_3 was the corrected input file.
+find "$PROTEIN_DIR" -maxdepth 1 -type f -name 'OG*.fa*' -print \
+    | sort -V > "$INPUT_LIST"
+wc -l "$INPUT_LIST"
+head "$INPUT_LIST"
+mkdir -p "$GUIDANCE_DIR/results" "$CODON_DIR" "$PAML_DIR"
 
-# Prepare all codon alignments.
+# 3. RUN GUIDANCE3 (MAFFT L-INS-i, NOT DEFAULT MAFFT)
+# The historical run used 100 bootstrap guide-tree replicates, 0.93 cutoff,
+# four processes per OG, and up to 20 independent OGs in parallel.
+# In the example below, two simultaneous jobs is a conservative default.
+# Set MAX_JOBS=20 only when computational resources permit (20 x 4 workers).
+# The portable launcher preserves all scientific parameters in the original:
+# --msaProgram MAFFT_LINSI --program GUIDANCE3 --bootstraps 100
+# --disableConvergence --colCutoff 0.93 --proc_num 4 --mafft <mafft>
+
+export GUIDANCE_ROOT="$GUIDANCE_DIR"
+export INPUT_LIST G3_BIN
+export MAFFT="$MAFFT_BIN"
+export MAX_JOBS="${MAX_JOBS:-2}"
+export PROC_NUM=4
+export EXPECTED_OGS="$(wc -l < "$INPUT_LIST")"
+
+bash "$SCRIPT_DIR/run_guidance3_linsi_portable.sh" \
+    > "$GUIDANCE_DIR/guidance3_launcher.log" 2>&1
+
+# Each OG should produce results/OG_NAME_guidance/ENDS_OK, a BestMSA protein
+# alignment (*BestMSA.fasta), and its confidence (*BestMSA_res_pair_col.scr).
+# The automatic GUIDANCE3-filtered alignment is NOT the codon-filtering input.
+find "$GUIDANCE_DIR/results" -name 'ENDS_OK' -type f | wc -l
+
+# 4. CONVERT BestMSA TO CODONS AND FILTER ALIGNMENT COLUMNS
+# prepare_guidance3_codons.py uses PAL2NAL on the FULL BestMSA; it removes an
+# entire protein column and corresponding 3-nt codon column if its residue-pair
+# confidence score is strictly below 0.93, in ALL species. Missing scores are
+# retained and audited as KEEP_UNSCORED, not treated as low confidence.
+# Surviving TAA/TAG/TGA codons are masked as NNN, with an audit trail.
+# Whole-codon gaps (---) are preserved; partial-gap codons fail validation.
+# Input CDS files are under cds_ogs/OG_NAME/cds_species.fasta.
 
 python3 "$SCRIPT_DIR/prepare_guidance3_codons.py" \
     --guidance-root "$GUIDANCE_DIR" \
@@ -259,102 +224,69 @@ python3 "$SCRIPT_DIR/prepare_guidance3_codons.py" \
     --perl "$PERL_BIN" \
     --pal2nal "$PAL2NAL_BIN"
 
+# For every OG: OG_BestMSA_filtered_codon.fasta, OG_column_filter.tsv,
+# OG_stop_mask.tsv, CODON_FILTER_OK; plus global guidance3_codon_summary.tsv.
+find "$CODON_DIR" -name CODON_FILTER_OK -type f | wc -l
 
-# Main outputs for each OG:
-#
-# OG_NAME_BestMSA_filtered.fasta          Filtered protein alignment
-# OG_NAME_BestMSA_filtered_codon.fasta    Filtered codon alignment
-# OG_NAME_column_filter.tsv               Record of kept/removed columns
-# CODON_FILTER_OK                         Successful validation marker
-#
-# A global summary is written to guidance3_codon_summary.tsv.
-
-
-# The following number should equal the number of OGs in the input list.
-
-find "$CODON_DIR" -type f -name 'CODON_FILTER_OK' | wc -l
-
-
-# ---------------------------------------------------------------------------
-# 5. PREPARE THE PAML INPUT
-# ---------------------------------------------------------------------------
-
-# Prepare one Newick species tree per OG. Each tree must contain exactly the
-# species in that alignment, use identical labels, and mark the foreground
-# branch with #1. The phylogenetic source used to build the topology should be
-# recorded and cited.
-
-
-# Create alternative and null branch-site model directories.
+# 5. BUILD PAML ALTERNATIVE AND NULL MODELS
+# IMPORTANT: template-paml-root must contain:
+#   paml_templates/alternative/OG1/codeml.ctl
+#   paml_templates/alternative/OG1/arbol.tree
+#   paml_templates/null/OG1/arbol.tree
+# The two trees must match exactly, and their tips must match the codon alignment.
+# Alternative and null use model=2, NSsites=2, cleandata=1.
+# Alternative: fix_omega=0, INITIAL omega=0.4 (NOT omega=4).
+# Null:        fix_omega=1, omega=1.
+# These are starting/control settings, not the fitted omega estimates.
 
 python3 "$SCRIPT_DIR/prepare_guidance3_paml.py" \
     --codon-root "$CODON_DIR" \
     --template-paml-root "$TEMPLATE_DIR" \
-    --output-root "$PAML_DIR"
+    --output-root "$PAML_DIR" \
+    --cleandata 1
 
+# The script creates alternative/OG_NAME, null/OG_NAME, PAML_INPUT_OK
+# markers, guidance3_paml_input_summary.tsv, and PAML_INPUTS_READY.
+# With cleandata=1, codeml subsequently excludes codon columns containing
+# gaps or ambiguous characters in any of the analyzed sequences.
+find "$PAML_DIR" -name PAML_INPUT_OK -type f | wc -l
 
-# Alternative model settings:
-# model = 2
-# NSsites = 2
-# fix_omega = 0
-# omega = 4
-#
-# Null model settings:
-# model = 2
-# NSsites = 2
-# fix_omega = 1
-# omega = 1
-#
-# Both models use cleandata = 1. The alternative and null models use the same
-# alignment, tree, and cleandata setting, so their lnL values are comparable.
+# 6. RUN CODEML ON BOTH MODELS
+# codeml jobs are independent and usually single-threaded. The historical
+# study used --max-jobs 80. Here MAX_CODEML_JOBS defaults to 1 for portability.
+# The launcher requires PAML_INPUTS_READY and validates model configurations.
+# It is resumable; completed runs receive CODEML_RUN_OK (NOT CODEML_OK).
+N_OG="$(wc -l < "$INPUT_LIST")"
+MAX_CODEML_JOBS="${MAX_CODEML_JOBS:-1}"
 
-
-# There should be one successful input marker per OG in each model.
-
-find "$PAML_DIR/alternative" -type f -name 'PAML_INPUT_OK' | wc -l
-find "$PAML_DIR/null" -type f -name 'PAML_INPUT_OK' | wc -l
-
-
-# ---------------------------------------------------------------------------
-# 6. RUN CODEML
-# ---------------------------------------------------------------------------
-
-# codeml is normally single-threaded. MAX_JOBS is the number of independent
-# codeml processes allowed to run simultaneously. One is the safe default.
-
-CODEML_BIN="$(command -v codeml)"
-MAX_JOBS="${MAX_JOBS:-1}"
-
-
-# The launcher skips models already marked as complete, so it can be restarted
-# after an interruption.
-
-nohup bash "$SCRIPT_DIR/run_guidance3_paml.sh" \
+bash "$SCRIPT_DIR/run_guidance3_paml.sh" \
     --paml-root "$PAML_DIR" \
     --codeml "$CODEML_BIN" \
-    --max-jobs "$MAX_JOBS" \
-    > "$PAML_DIR/codeml_launcher.log" 2>&1 &
+    --expected-ogs "$N_OG" \
+    --max-jobs "$MAX_CODEML_JOBS" \
+    > "$PAML_DIR/codeml_launcher.log" 2>&1
 
-
-# Monitor the run. Ctrl+C stops viewing the log but does not stop codeml.
-
-tail -f "$PAML_DIR/codeml_launcher.log"
-
-# ---------------------------------------------------------------------------
-# 7. CHECK THE RESULTS
-# ---------------------------------------------------------------------------
-
-# Calculate the expected number of model runs. There are two models per OG.
-
-N_OG="$(wc -l < "$INPUT_LIST")"
+# There are two expected codeml runs per OG, one alternative and one null.
 EXPECTED_MODELS=$((2 * N_OG))
+COMPLETED_MODELS="$(find "$PAML_DIR/alternative" "$PAML_DIR/null" \
+    -type f -name CODEML_RUN_OK | wc -l)"
+printf 'OGs=%s expected_models=%s complete_models=%s\n' \
+    "$N_OG" "$EXPECTED_MODELS" "$COMPLETED_MODELS"
+# The launcher writes guidance3_codeml_run_summary.tsv (including lnL)
+# and CODEML_BATCH_COMPLETE when every expected model is complete.
 
-printf 'OMA Groups: %s\n' "$N_OG"
-printf 'Expected models: %s\n' "$EXPECTED_MODELS"
-
-# The number of completed codeml runs should equal EXPECTED_MODELS.
-
-find "$PAML_DIR" -type f -name 'CODEML_OK' | wc -l
+# 7. EXTRACT STATISTICS AND BEB SITES
+# GUIDANCE3/PAML launcher output provides one lnL per model in
+# guidance3_codeml_run_summary.tsv. A separate statistical step must calculate
+# LRT = max(0, 2 * (lnL_alternative - lnL_null)) per OG, the appropriate
+# branch-site test p-values, and a multiple-testing correction (e.g., BH-FDR).
+# parse_paml_beb_guidance3.py is specific to the 39 preselected OGs encoded in
+# its GENES dictionary (It depends of the PAML results); it only reads alternative-model output and extracts
+# site-class MLE tables and starred BEB sites. For that 39-OG analysis only:
+ python3 "$SCRIPT_DIR/parse_paml_beb_guidance3.py" "$PAML_DIR/alternative" \
+     --output "$PAML_DIR/selected_39_BEB.csv"
+# BEB positions are relative to the FINAL FILTERED codon alignment. To map
+# them back to the unfiltered alignment, use OG_column_filter.tsv.
 
 CAFE
 
