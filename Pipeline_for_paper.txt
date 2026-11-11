@@ -122,6 +122,9 @@ python Get_CDS.py path_to_file/OGXX.fa > OGXX.fa_CDS
 #
 # Protein, CDS, and tree labels must identify the same species. CDS sequences
 # must be in frame.
+# Protein FASTA headers must end with a species identifier in square
+# brackets, e.g., [Mus_musculus], as required by the codon preparation script.
+# CDS FASTA identifiers must match these species names.
 #
 # A simple project organization is:
 #
@@ -137,24 +140,15 @@ python Get_CDS.py path_to_file/OGXX.fa > OGXX.fa_CDS
 #
 # protein_ogs/OG1.fasta
 # cds_ogs/OG1/cds_species.fasta
-# paml_templates/OG1/arbol.tree
+# paml_templates/alternative/OG1/codeml.ctl
+# paml_templates/alternative/OG1/arbol.tree
+# paml_templates/null/OG1/arbol.tree
 
+# The species tree must contain the same species as the codon alignment,
+# with the foreground branch marked as #1.
 
 # Open a terminal in the project directory and define the folders once.
 # Change only these names if the project is organized differently.
-
-PROJECT_DIR="$(pwd)"
-PROTEIN_DIR="$PROJECT_DIR/protein_ogs"
-CDS_DIR="$PROJECT_DIR/cds_ogs"
-TEMPLATE_DIR="$PROJECT_DIR/paml_templates"
-SCRIPT_DIR="$PROJECT_DIR/scripts"
-GUIDANCE_DIR="$PROJECT_DIR/guidance3_analysis"
-CODON_DIR="$GUIDANCE_DIR/codon_results"
-PAML_DIR="$PROJECT_DIR/paml_guidance3"
-INPUT_LIST="$PROJECT_DIR/og_protein_files.txt"
-
-mkdir -p "$GUIDANCE_DIR/results" "$CODON_DIR" "$PAML_DIR"
-
 
 # 2. DEFINE DIRECTORIES, PROGRAMS AND INPUT LIST
 
@@ -167,6 +161,8 @@ GUIDANCE_DIR="$PROJECT_DIR/guidance3_analysis"
 CODON_DIR="$GUIDANCE_DIR/codon_results"
 PAML_DIR="$PROJECT_DIR/paml_guidance3"
 INPUT_LIST="$PROJECT_DIR/og_protein_files.txt"
+
+mkdir -p "$GUIDANCE_DIR/results" "$CODON_DIR" "$PAML_DIR"
 
 G3_BIN="$(command -v guidance3)"
 MAFFT_BIN="$(command -v mafft)"
@@ -181,7 +177,17 @@ find "$PROTEIN_DIR" -maxdepth 1 -type f -name 'OG*.fa*' -print \
     | sort -V > "$INPUT_LIST"
 wc -l "$INPUT_LIST"
 head "$INPUT_LIST"
-mkdir -p "$GUIDANCE_DIR/results" "$CODON_DIR" "$PAML_DIR"
+
+# Check for duplicated OG identifiers.
+awk -F/ '{
+    split($NF, parts, ".")
+    og = parts[1]
+    if (++count[og] > 1) {
+        print "ERROR: duplicated OG:", og > "/dev/stderr"
+        duplicate = 1
+    }
+}
+END {exit duplicate}' "$INPUT_LIST" || exit 1
 
 # 3. RUN GUIDANCE3 (MAFFT L-INS-i, NOT DEFAULT MAFFT)
 # The historical run used 100 bootstrap guide-tree replicates, 0.93 cutoff,
@@ -276,17 +282,20 @@ printf 'OGs=%s expected_models=%s complete_models=%s\n' \
 # and CODEML_BATCH_COMPLETE when every expected model is complete.
 
 # 7. EXTRACT STATISTICS AND BEB SITES
-# GUIDANCE3/PAML launcher output provides one lnL per model in
-# guidance3_codeml_run_summary.tsv. A separate statistical step must calculate
-# LRT = max(0, 2 * (lnL_alternative - lnL_null)) per OG, the appropriate
-# branch-site test p-values, and a multiple-testing correction (e.g., BH-FDR).
-# parse_paml_beb_guidance3.py is specific to the 39 preselected OGs encoded in
-# its GENES dictionary (It depends of the PAML results); it only reads alternative-model output and extracts
-# site-class MLE tables and starred BEB sites. For that 39-OG analysis only:
- python3 "$SCRIPT_DIR/parse_paml_beb_guidance3.py" "$PAML_DIR/alternative" \
-     --output "$PAML_DIR/selected_39_BEB.csv"
-# BEB positions are relative to the FINAL FILTERED codon alignment. To map
-# them back to the unfiltered alignment, use OG_column_filter.tsv.
+# The PAML launcher writes the log-likelihood values (lnL) of both
+# models to guidance3_codeml_run_summary.tsv.
+# Statistical analyses (LRT, p-values and FDR) were performed in Excel.
+
+# After identifying the positively selected OGs, the following script
+# extracts site-class MLE estimates and BEB sites from the alternative
+# models. The script contains the list of 39 selected OGs.
+
+python3 "$SCRIPT_DIR/parse_paml_beb_guidance3.py" \
+    "$PAML_DIR/alternative" \
+    --output "$PAML_DIR/selected_39_BEB.csv"
+
+# BEB positions correspond to the filtered codon alignment.
+# OG_column_filter.tsv can be used to map them to the original alignment.
 
 CAFE
 
